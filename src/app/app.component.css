@@ -1,0 +1,19 @@
+:root {
+    --bg: #282828;         /* Dark background */
+    --fg: #ebdbb2;         /* Light foreground */
+    --red: #cc241d;
+    --green: #98971a;
+    --yellow: #d79921;
+    --blue: #458588;
+    --purple: #b16286;
+    --aqua: #689d6a;
+    --gray: #a89984;
+    --dark-gray: #3c3836;
+}
+
+app-root {
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: "Fira Code", monospace;
+}
+

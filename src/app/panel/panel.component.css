@@ -1,0 +1,21 @@
+.File_Panel{
+
+  display: flex;
+  justify-content: space-between;
+  background-color: rgb(68, 86, 89);
+  height: 25px;
+  width: 100%;
+  align-items: center;
+}
+.right_part{
+  display: flex;
+  justify-content:  space-between;
+  width: 10%;
+  padding-right: 5px;
+}
+.Command_Panel{
+  padding-top: 5px;;
+  display: flex;
+  justify-content: space-between;
+}
+
