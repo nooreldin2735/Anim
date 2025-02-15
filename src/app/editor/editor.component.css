@@ -13,6 +13,7 @@
 }
 .Line span{
   width: 1%;
+  padding-left: 10px;
 }
 p[contenteditable] {
   white-space: nowrap; /* Prevent multi-line text */
@@ -20,3 +21,9 @@ p[contenteditable] {
   display: block; /* Ensure it behaves like a block element */
   outline: none;
 }
+
+
+.SlectedCursor{
+  padding-left: 5px !important;
+}
+

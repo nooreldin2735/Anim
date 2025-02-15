@@ -35,6 +35,7 @@ export class EditorComponent {
       const p = this.GetP(div);
       this.Move(p);
       this.lintpointer--;
+      this.DisplayPointer(this.lintpointer);
     }
   }
   MoveDown() {
@@ -44,6 +45,7 @@ export class EditorComponent {
       const p = this.GetP(div);
       this.Move(p);
       this.lintpointer++;
+      this.DisplayPointer(this.lintpointer);
     }
   }
   AddLine(event: Event) {
@@ -54,15 +56,15 @@ export class EditorComponent {
     if (this.Lines[this.lintpointer + 1] == null) {
       this.RenderLine();
       this.lintpointer++;
+      this.DisplayPointer(this.lintpointer);
     } else {
       console.log(this.lintpointer);
-      const div=this.Lines[this.lintpointer+1];
-      const p=this.GetP(div);
+      const div = this.Lines[this.lintpointer + 1];
+      const p = this.GetP(div);
       this.Move(p);
       this.lintpointer++;
-
+      this.DisplayPointer(this.lintpointer);
     }
-
   }
   GetSpan(div: HTMLDivElement): HTMLSpanElement | null {
     return div.querySelector('span');
@@ -109,5 +111,55 @@ export class EditorComponent {
       selection?.removeAllRanges();
       selection?.addRange(range);
     }, 0);
+  }
+  DisplayPointer(linePoiner: number) {
+    console.log('--------------------------------');
+
+    for (let i: number = 0; i < this.Lines.length; i++) {
+      const div_curr = this.Lines[i];
+      const span_curr = div_curr.querySelector('span');
+      if (span_curr) {
+        setTimeout(() => {
+          span_curr.className = '';
+        }, 0);
+      }
+    }
+    const div_curr = this.Lines[linePoiner];
+    const span_curr = div_curr.querySelector('span');
+    if (span_curr) {
+      console.log(span_curr);
+      const val = linePoiner + 1;
+      setTimeout(() => {
+        span_curr.innerText = val.toString();
+        span_curr.className = 'SlectedCursor';
+      }, 0);
+    }
+    console.log(linePoiner);
+    let aux_up = 1;
+    let aux_down = 1;
+    for (let i: number = linePoiner - 1; i >= 0; i--) {
+      const div = this.Lines[i];
+      const span = div.querySelector('span');
+      if (span) {
+        setTimeout(() => {
+          span.innerText = aux_up.toString();
+          aux_up++;
+        }, 0);
+      }
+      console.log('up');
+      console.log(i);
+    }
+    for (let i: number = linePoiner + 1; i < this.Lines.length; i++) {
+      const div = this.Lines[i];
+      const span = div.querySelector('span');
+      if (span) {
+        setTimeout(() => {
+          span.innerText = aux_down.toString();
+          aux_down++;
+        }, 0);
+      }
+      console.log('down');
+      console.log(i);
+    }
   }
 }
