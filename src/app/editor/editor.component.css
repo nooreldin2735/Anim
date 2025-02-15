@@ -1,0 +1,22 @@
+.EditorContainer{
+ height: 600px;
+}
+.Line{
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 25px;
+}
+.Line p{
+  width: 99%;
+  margin-left: 10px;
+}
+.Line span{
+  width: 1%;
+}
+p[contenteditable] {
+  white-space: nowrap; /* Prevent multi-line text */
+  overflow: hidden; /* Hide overflowed text */
+  display: block; /* Ensure it behaves like a block element */
+  outline: none;
+}
