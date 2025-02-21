@@ -1,6 +1,6 @@
 <div #lineField [className]="{ EditorContainer: true }" (keydown)="ListenToCommand($event)">
   <div #FirstLineToExist class="Line">
     <span>1</span>
-    <p contenteditable="true"></p>
+    <p contenteditable="true" (keydown.k)="MoveUp()" (keydown.j)="MoveDown()" (keydown.enter)="AddLine($event)"></p>
   </div>
 </div>

@@ -8,6 +8,7 @@ import {
 import { RouterPreloader } from '@angular/router';
 import { trace } from 'node:console';
 import * as Ropeutils from '../Models/Rope';
+import { FromToPanelService } from '../from-to-panel.service';
 @Component({
   selector: 'app-editor',
   imports: [],
@@ -16,49 +17,131 @@ import * as Ropeutils from '../Models/Rope';
   standalone: true,
 })
 export class EditorComponent {
+  NormalMode = 'Normal';
+  InsertMode = 'Insert';
+  VisualMode = 'Visual';
+  CurrentMode: string = '';
   Lines: HTMLElement[] = [];
   lintpointer: number = 0;
-  constructor(private renderer: Renderer2) {}
+  LastLineUsed: HTMLParagraphElement | null = null;
+  constructor(
+    private renderer: Renderer2,
+    private sharedService: FromToPanelService,
+  ) { }
   @ViewChild('lineField') LineField?: ElementRef<HTMLElement>;
   @ViewChild('FirstLineToExist') FirstLineToExist?: ElementRef<HTMLElement>;
-  ngOnInit() {}
+  ngOnInit() { }
 
   ngAfterViewInit() {
-    if (this.FirstLineToExist?.nativeElement)
+    if (this.FirstLineToExist?.nativeElement) {
       this.Lines.push(this.FirstLineToExist.nativeElement);
+      const p = this.GetP(this.FirstLineToExist.nativeElement);
+      this.Move(p);
+      this.LastLineUsed = p;
+    }
+
+    this.CurrentMode = this.NormalMode;
+
+    setTimeout(() => {
+      this.updateCursorStyle(this.lintpointer);
+      this.sendText([this.NormalMode]);
+    }, 0);
+  }
+
+  ListenToCommand(event: Event) {
+    const keyevent: KeyboardEvent = event as KeyboardEvent;
+
+    this.sendText([this.CurrentMode, keyevent.key]);
+    if (this.CurrentMode == this.NormalMode) {
+      keyevent.preventDefault();
+    }
+    if (
+      keyevent.key == 'Escape' &&
+      (this.CurrentMode == this.InsertMode ||
+        this.CurrentMode == this.VisualMode)
+    ) {
+      this.CurrentMode = this.NormalMode;
+      this.updateCursorStyle(this.lintpointer);
+      this.sendText([this.NormalMode]);
+    } else if (keyevent.key == 'i' && this.CurrentMode == this.NormalMode) {
+      this.CurrentMode = this.InsertMode;
+      const Current_line = event.target as HTMLElement;
+      Current_line.classList.remove(
+        'normal-mode',
+        'insert-mode',
+        'visual-mode',
+      );
+      this.updateCursorStyle(this.lintpointer);
+      this.sendText([this.InsertMode]);
+    } else if (
+      keyevent.key === 'Enter' &&
+      this.CurrentMode == this.InsertMode
+    ) {
+      this.AddLine(keyevent);
+    } else if (keyevent.key === 'j' && this.CurrentMode == this.NormalMode) {
+      this.MoveDown();
+    } else if (keyevent.key === 'k' && this.CurrentMode == this.NormalMode) {
+      this.MoveUp();
+    }
+  }
+  updateCursorStyle(LinePointer: number) {
+    const p = this.GetP(this.Lines[LinePointer]);
+    console.log(this.LastLineUsed);
+    if (p) {
+      if (this.LastLineUsed)
+        this.LastLineUsed.classList.remove(
+          'normal-mode',
+          'insert-mode',
+          'visual-mode',
+        );
+      console.log(this.LastLineUsed?.classList);
+
+      switch (this.CurrentMode) {
+        case this.NormalMode:
+          p.classList.add('normal-mode');
+          break;
+        case this.InsertMode:
+          p.classList.add('insert-mode');
+          break;
+        case this.VisualMode:
+          p.classList.add('visual-mode');
+          break;
+      }
+    }
   }
 
   MoveUp() {
-    console.log(this.Lines.length);
+    this.LastLineUsed = this.Lines[this.lintpointer].querySelector('p');
     if (this.Lines[this.lintpointer - 1] != null) {
       const div = this.Lines[this.lintpointer - 1];
       const p = this.GetP(div);
       this.Move(p);
       this.lintpointer--;
       this.DisplayPointer(this.lintpointer);
+      this.updateCursorStyle(this.lintpointer);
     }
   }
   MoveDown() {
-    console.log('down');
+    this.LastLineUsed = this.Lines[this.lintpointer].querySelector('p');
     if (this.Lines[this.lintpointer + 1] != null) {
       const div = this.Lines[this.lintpointer + 1];
       const p = this.GetP(div);
       this.Move(p);
       this.lintpointer++;
       this.DisplayPointer(this.lintpointer);
+      this.updateCursorStyle(this.lintpointer);
     }
   }
-  AddLine(event: Event) {
-    const keyevent: KeyboardEvent = event as KeyboardEvent;
-    if (keyevent.key == 'Enter') {
-      keyevent.preventDefault();
+  AddLine(event: KeyboardEvent) {
+    this.LastLineUsed = this.Lines[this.lintpointer].querySelector('p');
+    if (event.key == 'Enter') {
+      event.preventDefault();
     }
     if (this.Lines[this.lintpointer + 1] == null) {
       this.RenderLine();
       this.lintpointer++;
       this.DisplayPointer(this.lintpointer);
     } else {
-      console.log(this.lintpointer);
       const div = this.Lines[this.lintpointer + 1];
       const p = this.GetP(div);
       this.Move(p);
@@ -88,15 +171,6 @@ export class EditorComponent {
     this.renderer.appendChild(span, textspan);
     this.renderer.appendChild(div, span);
     this.renderer.appendChild(div, p);
-    this.renderer.listen(p, 'keydown.enter', (event: Event) => {
-      this.AddLine(event);
-    });
-    this.renderer.listen(p, 'keydown.k', (event: Event) => {
-      this.MoveUp();
-    });
-    this.renderer.listen(p, 'keydown.j', (event: Event) => {
-      this.MoveDown();
-    });
     this.renderer.appendChild(this.LineField?.nativeElement, div);
     this.Lines.push(div);
     this.Move(p);
@@ -113,8 +187,6 @@ export class EditorComponent {
     }, 0);
   }
   DisplayPointer(linePoiner: number) {
-    console.log('--------------------------------');
-
     for (let i: number = 0; i < this.Lines.length; i++) {
       const div_curr = this.Lines[i];
       const span_curr = div_curr.querySelector('span');
@@ -127,14 +199,12 @@ export class EditorComponent {
     const div_curr = this.Lines[linePoiner];
     const span_curr = div_curr.querySelector('span');
     if (span_curr) {
-      console.log(span_curr);
       const val = linePoiner + 1;
       setTimeout(() => {
         span_curr.innerText = val.toString();
         span_curr.className = 'SlectedCursor';
       }, 0);
     }
-    console.log(linePoiner);
     let aux_up = 1;
     let aux_down = 1;
     for (let i: number = linePoiner - 1; i >= 0; i--) {
@@ -146,8 +216,6 @@ export class EditorComponent {
           aux_up++;
         }, 0);
       }
-      console.log('up');
-      console.log(i);
     }
     for (let i: number = linePoiner + 1; i < this.Lines.length; i++) {
       const div = this.Lines[i];
@@ -158,8 +226,9 @@ export class EditorComponent {
           aux_down++;
         }, 0);
       }
-      console.log('down');
-      console.log(i);
     }
+  }
+  sendText(Massege: string[]) {
+    this.sharedService.updateMessage(Massege);
   }
 }

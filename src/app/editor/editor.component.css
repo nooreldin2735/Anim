@@ -1,17 +1,17 @@
-.EditorContainer{
- height: 600px;
+.EditorContainer {
+  height: 600px;
 }
-.Line{
+.Line {
   display: flex;
   align-items: center;
   width: 100%;
   height: 25px;
 }
-.Line p{
+.Line p {
   width: 99%;
   margin-left: 10px;
 }
-.Line span{
+.Line span {
   width: 1%;
   padding-left: 10px;
 }
@@ -22,8 +22,32 @@ p[contenteditable] {
   outline: none;
 }
 
-
-.SlectedCursor{
+.SlectedCursor {
   padding-left: 5px !important;
 }
+.normal-mode {
+  caret-color: transparent;
+  position: relative;
+}
+.normal-mode::after {
+  content: " "; /* Empty content */
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0.6em; /* Adjust width to fit character */
+  height: 100%;
+  background: white; /* Block cursor color */
+  opacity: 0.8;
+  animation: blink 1s step-start infinite;
+}
 
+.insert-mode {
+  cursor: text;
+  caret-color: white; /* Adjust based on your theme */
+  position: relative;
+}
+
+.visual-mode {
+  cursor: crosshair;
+  caret-color: yellow; /* Can be any color */
+}
