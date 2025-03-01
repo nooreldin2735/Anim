@@ -20,6 +20,7 @@ export class EditorComponent {
   NormalMode = 'Normal';
   InsertMode = 'Insert';
   VisualMode = 'Visual';
+  CounterMotion: string = '';
   CurrentMode: string = '';
   Lines: HTMLElement[] = [];
   lintpointer: number = 0;
@@ -27,10 +28,10 @@ export class EditorComponent {
   constructor(
     private renderer: Renderer2,
     private sharedService: FromToPanelService,
-  ) { }
+  ) {}
   @ViewChild('lineField') LineField?: ElementRef<HTMLElement>;
   @ViewChild('FirstLineToExist') FirstLineToExist?: ElementRef<HTMLElement>;
-  ngOnInit() { }
+  ngOnInit() {}
 
   ngAfterViewInit() {
     if (this.FirstLineToExist?.nativeElement) {
@@ -51,7 +52,14 @@ export class EditorComponent {
   ListenToCommand(event: Event) {
     const keyevent: KeyboardEvent = event as KeyboardEvent;
 
-    this.sendText([this.CurrentMode, keyevent.key]);
+    if (!isNaN(Number(keyevent.key)) && this.CurrentMode == this.NormalMode) {
+      if (this.CounterMotion.length <= 3) {
+        this.CounterMotion += keyevent.key;
+        this.sendText([this.CurrentMode, this.CounterMotion]);
+      }
+    } else {
+      this.sendText([this.CurrentMode, keyevent.key]);
+    }
     if (this.CurrentMode == this.NormalMode) {
       keyevent.preventDefault();
     }
@@ -79,9 +87,21 @@ export class EditorComponent {
     ) {
       this.AddLine(keyevent);
     } else if (keyevent.key === 'j' && this.CurrentMode == this.NormalMode) {
-      this.MoveDown();
+      if (this.CounterMotion == '') {
+        this.MoveDown();
+      } else {
+        this.sendText([this.CurrentMode, this.CounterMotion + keyevent.key]);
+        this.MoveDown(Number(this.CounterMotion));
+      }
     } else if (keyevent.key === 'k' && this.CurrentMode == this.NormalMode) {
-      this.MoveUp();
+      if (this.CounterMotion == '') {
+        this.MoveUp();
+      } else {
+        this.sendText([this.CurrentMode, this.CounterMotion + keyevent.key]);
+        this.MoveUp(Number(this.CounterMotion));
+      }
+    } else if (isNaN(Number(keyevent.key))) {
+      this.CounterMotion = '';
     }
   }
   updateCursorStyle(LinePointer: number) {
@@ -110,24 +130,40 @@ export class EditorComponent {
     }
   }
 
-  MoveUp() {
+  MoveUp(countermotion: number = 1) {
     this.LastLineUsed = this.Lines[this.lintpointer].querySelector('p');
-    if (this.Lines[this.lintpointer - 1] != null) {
-      const div = this.Lines[this.lintpointer - 1];
+    this.CounterMotion = '';
+    if (this.Lines[this.lintpointer - countermotion] != null) {
+      const div = this.Lines[this.lintpointer - countermotion];
       const p = this.GetP(div);
       this.Move(p);
-      this.lintpointer--;
+      this.lintpointer -= countermotion;
+      this.DisplayPointer(this.lintpointer);
+      this.updateCursorStyle(this.lintpointer);
+    } else {
+      const div = this.Lines[0];
+      const p = this.GetP(div);
+      this.Move(p);
+      this.lintpointer = 0;
       this.DisplayPointer(this.lintpointer);
       this.updateCursorStyle(this.lintpointer);
     }
   }
-  MoveDown() {
+  MoveDown(countermotion: number = 1) {
     this.LastLineUsed = this.Lines[this.lintpointer].querySelector('p');
-    if (this.Lines[this.lintpointer + 1] != null) {
-      const div = this.Lines[this.lintpointer + 1];
+    this.CounterMotion = '';
+    if (this.Lines[this.lintpointer + countermotion] != null) {
+      const div = this.Lines[this.lintpointer + countermotion];
       const p = this.GetP(div);
       this.Move(p);
-      this.lintpointer++;
+      this.lintpointer += countermotion;
+      this.DisplayPointer(this.lintpointer);
+      this.updateCursorStyle(this.lintpointer);
+    } else {
+      const div = this.Lines[this.Lines.length - 1];
+      const p = this.GetP(div);
+      this.Move(p);
+      this.lintpointer = this.Lines.length - 1;
       this.DisplayPointer(this.lintpointer);
       this.updateCursorStyle(this.lintpointer);
     }
