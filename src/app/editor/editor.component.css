@@ -25,22 +25,24 @@ p[contenteditable] {
 .SlectedCursor {
   padding-left: 5px !important;
 }
+
 .normal-mode {
-  caret-color: transparent;
+  caret-color: transparent; /* Hide default caret */
   position: relative;
+  display: inline-block; /* Ensure it follows text flow */
 }
+
 .normal-mode::after {
-  content: " "; /* Empty content */
+  content: " ";
   position: absolute;
-  left: 0;
+  left: var(--cursor-x, 1); /* Dynamic cursor position */
   top: 0;
-  width: 0.6em; /* Adjust width to fit character */
-  height: 100%;
-  background: white; /* Block cursor color */
+  width: 0.6em;
+  height: 1.2em;
+  background: white;
   opacity: 0.8;
   animation: blink 1s step-start infinite;
 }
-
 .insert-mode {
   cursor: text;
   caret-color: white; /* Adjust based on your theme */

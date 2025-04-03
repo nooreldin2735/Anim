@@ -6,9 +6,11 @@ import {
   viewChild,
 } from '@angular/core';
 import { RouterPreloader } from '@angular/router';
-import { trace } from 'node:console';
+import { Console, trace } from 'node:console';
 import * as Ropeutils from '../Models/Rope';
+import * as BufferUtil from '../Models/GapBuffer';
 import { FromToPanelService } from '../from-to-panel.service';
+import { buffer } from 'node:stream/consumers';
 @Component({
   selector: 'app-editor',
   imports: [],
@@ -17,23 +19,34 @@ import { FromToPanelService } from '../from-to-panel.service';
   standalone: true,
 })
 export class EditorComponent {
+  //Constans
   NormalMode = 'Normal';
   InsertMode = 'Insert';
   VisualMode = 'Visual';
+
+  //Motion
   CounterMotion: string = '';
   CurrentMode: string = '';
-  Lines: HTMLElement[] = [];
   lintpointer: number = 0;
+  Cursor_pos: number = 0;
+
+  //Datas
   LastLineUsed: HTMLParagraphElement | null = null;
+  buffer: BufferUtil.GapBuffer[];
+  Lines: HTMLElement[] = [];
+
   constructor(
     private renderer: Renderer2,
     private sharedService: FromToPanelService,
-  ) {}
+  ) {
+    this.buffer = new Array();
+  }
   @ViewChild('lineField') LineField?: ElementRef<HTMLElement>;
   @ViewChild('FirstLineToExist') FirstLineToExist?: ElementRef<HTMLElement>;
-  ngOnInit() {}
+  ngOnInit() { }
 
   ngAfterViewInit() {
+    this.buffer[0]=new BufferUtil.GapBuffer();
     if (this.FirstLineToExist?.nativeElement) {
       this.Lines.push(this.FirstLineToExist.nativeElement);
       const p = this.GetP(this.FirstLineToExist.nativeElement);
@@ -51,6 +64,44 @@ export class EditorComponent {
 
   ListenToCommand(event: Event) {
     const keyevent: KeyboardEvent = event as KeyboardEvent;
+
+      console.log(keyevent.key);
+    if (this.CurrentMode == this.InsertMode && keyevent.key == 'ArrowRight') {
+      this.Cursor_pos++;
+    } else if (
+      this.CurrentMode == this.InsertMode &&
+      keyevent.key == 'ArrowLeft'
+    ) {
+      this.Cursor_pos--;
+    } else if (
+      this.CurrentMode == this.InsertMode &&
+      keyevent.key == 'ArrowUp'
+    ) {
+      if (
+        this.Lines[this.lintpointer - 1] != null ||
+        this.lintpointer - 1 >= 0
+      ) {
+        this.lintpointer--;
+        const p = this.GetP(this.Lines[this.lintpointer]);
+        this.Move(p);
+      }
+    } else if (
+      this.CurrentMode == this.InsertMode &&
+      keyevent.key == 'ArrowDown'
+    ) {
+      if (this.Lines[this.lintpointer + 1] != null) {
+        this.lintpointer++;
+        const p = this.GetP(this.Lines[this.lintpointer]);
+        this.Move(p);
+      }
+    } else if (this.CurrentMode == this.InsertMode&&keyevent.key!="Escape") {
+      this.buffer[this.lintpointer].Insert(keyevent.key,this.Cursor_pos);
+      this.Cursor_pos++;
+      console.log(this.Cursor_pos);
+      this.moveCursorToPosition(this.GetP(this.Lines[this.lintpointer]),this.Cursor_pos);
+      return;
+
+    }
 
     if (!isNaN(Number(keyevent.key)) && this.CurrentMode == this.NormalMode) {
       if (this.CounterMotion.length <= 3) {
@@ -71,6 +122,7 @@ export class EditorComponent {
       this.CurrentMode = this.NormalMode;
       this.updateCursorStyle(this.lintpointer);
       this.sendText([this.NormalMode]);
+      this.moveCursorToPosition(this.GetP(this.Lines[this.lintpointer]),this.Cursor_pos);
     } else if (keyevent.key == 'i' && this.CurrentMode == this.NormalMode) {
       this.CurrentMode = this.InsertMode;
       const Current_line = event.target as HTMLElement;
@@ -86,14 +138,34 @@ export class EditorComponent {
       this.CurrentMode == this.InsertMode
     ) {
       this.AddLine(keyevent);
-    } else if (keyevent.key === 'j' && this.CurrentMode == this.NormalMode) {
+    } else if (
+      (keyevent.key === 'j' || keyevent.key == 'ArrowDown') &&
+      this.CurrentMode == this.NormalMode
+    ) {
       if (this.CounterMotion == '') {
         this.MoveDown();
       } else {
         this.sendText([this.CurrentMode, this.CounterMotion + keyevent.key]);
         this.MoveDown(Number(this.CounterMotion));
       }
-    } else if (keyevent.key === 'k' && this.CurrentMode == this.NormalMode) {
+    } else if (
+      (keyevent.key == 'l' || keyevent.key == 'ArrowRight') &&
+      this.CurrentMode == this.NormalMode
+    ) {
+      const p = this.GetP(this.Lines[this.lintpointer]);
+      this.MoveRight(p,keyevent);
+    } else if (
+      (keyevent.key == 'h' || keyevent.key == 'ArrowLeft') &&
+      this.CurrentMode == this.NormalMode
+    ) {
+      const p=this.GetP(this.Lines[this.lintpointer]);
+      this.MoveLeft(p,keyevent);
+    }
+      else if (
+
+      (keyevent.key === 'k' || keyevent.key == 'ArrowUp') &&
+      this.CurrentMode == this.NormalMode
+    ) {
       if (this.CounterMotion == '') {
         this.MoveUp();
       } else {
@@ -103,33 +175,88 @@ export class EditorComponent {
     } else if (isNaN(Number(keyevent.key))) {
       this.CounterMotion = '';
     }
+    console.log(this.Cursor_pos);
   }
-  updateCursorStyle(LinePointer: number) {
-    const p = this.GetP(this.Lines[LinePointer]);
-    console.log(this.LastLineUsed);
-    if (p) {
-      if (this.LastLineUsed)
-        this.LastLineUsed.classList.remove(
-          'normal-mode',
-          'insert-mode',
-          'visual-mode',
-        );
-      console.log(this.LastLineUsed?.classList);
 
-      switch (this.CurrentMode) {
-        case this.NormalMode:
-          p.classList.add('normal-mode');
-          break;
-        case this.InsertMode:
-          p.classList.add('insert-mode');
-          break;
-        case this.VisualMode:
-          p.classList.add('visual-mode');
-          break;
-      }
+  updateCursorStyle(LinePointer: number, charIndex: number = 0) {
+    const p = this.GetP(this.Lines[LinePointer]); // Get the <p> element
+    if (!p) return;
+
+    if (this.LastLineUsed) {
+      this.LastLineUsed.classList.remove(
+        'normal-mode',
+        'insert-mode',
+        'visual-mode',
+      );
+    }
+
+    if (this.CurrentMode === this.NormalMode) {
+      p.classList.add('normal-mode');
+
+      // Get text before the cursor
+      const textBeforeCursor = p.textContent?.slice(0, charIndex) || '';
+
+      // Calculate text width using a hidden span (avoiding direct measurement issues)
+      const tempSpan = document.createElement('span');
+      tempSpan.style.visibility = 'hidden';
+      tempSpan.style.whiteSpace = 'pre';
+      tempSpan.textContent = textBeforeCursor;
+      document.body.appendChild(tempSpan);
+
+      // Get width and remove temp span
+      const cursorX = tempSpan.getBoundingClientRect().width;
+      tempSpan.remove();
+
+      // Apply the position
+      p.style.setProperty('--cursor-x', `${cursorX}px`);
     }
   }
 
+  MoveLeft(p:HTMLParagraphElement,keyevent:KeyboardEvent){
+
+    if (p.innerHTML[this.Cursor_pos - 1] != null) {
+      if (this.CounterMotion == '') {
+        this.moveCursorToPosition(p, this.Cursor_pos - 1);
+        this.Cursor_pos--;
+      } else {
+        if (p.innerHTML[this.Cursor_pos + Number(this.CounterMotion)] != null) {
+          this.sendText([this.CurrentMode, this.CounterMotion + keyevent.key]);
+          this.moveCursorToPosition(
+            p,
+            Number(this.CounterMotion) + this.Cursor_pos,
+          );
+          this.Cursor_pos -= Number(this.CounterMotion);
+        } else {
+          this.Cursor_pos = 0;
+          this.moveCursorToPosition(p, this.Cursor_pos);
+        }
+      }
+    } else {
+      console.log('End OF line');
+    }
+  }
+  MoveRight(p: HTMLParagraphElement,keyevent:KeyboardEvent) {
+    if (p.innerHTML[this.Cursor_pos + 1] != null) {
+      if (this.CounterMotion == '') {
+        this.moveCursorToPosition(p, this.Cursor_pos + 1);
+        this.Cursor_pos++;
+      } else {
+        if (p.innerHTML[this.Cursor_pos + Number(this.CounterMotion)] != null) {
+          this.sendText([this.CurrentMode, this.CounterMotion + keyevent.key]);
+          this.moveCursorToPosition(
+            p,
+            Number(this.CounterMotion) + this.Cursor_pos,
+          );
+          this.Cursor_pos += Number(this.CounterMotion);
+        } else {
+          this.Cursor_pos = p.innerHTML.length - 1;
+          this.moveCursorToPosition(p, this.Cursor_pos);
+        }
+      }
+    } else {
+      console.log('End OF line');
+    }
+  }
   MoveUp(countermotion: number = 1) {
     this.LastLineUsed = this.Lines[this.lintpointer].querySelector('p');
     this.CounterMotion = '';
@@ -170,19 +297,20 @@ export class EditorComponent {
   }
   AddLine(event: KeyboardEvent) {
     this.LastLineUsed = this.Lines[this.lintpointer].querySelector('p');
+    console.log('`````````````````````````````````````````');
+    console.log(this.lintpointer);
     if (event.key == 'Enter') {
       event.preventDefault();
     }
     if (this.Lines[this.lintpointer + 1] == null) {
-      this.RenderLine();
+      this.buffer[this.lintpointer+1]=new BufferUtil.GapBuffer();
+      const div = this.RenderLine();
+      const p = this.GetP(div);
+      this.Move(p);
+      this.Lines.push(div);
       this.lintpointer++;
       this.DisplayPointer(this.lintpointer);
     } else {
-      const div = this.Lines[this.lintpointer + 1];
-      const p = this.GetP(div);
-      this.Move(p);
-      this.lintpointer++;
-      this.DisplayPointer(this.lintpointer);
     }
   }
   GetSpan(div: HTMLDivElement): HTMLSpanElement | null {
@@ -197,7 +325,7 @@ export class EditorComponent {
 
     return p;
   }
-  RenderLine() {
+  RenderLine(): HTMLElement {
     const div = this.renderer.createElement('div');
     this.renderer.addClass(div, 'Line');
     const p = this.renderer.createElement('p');
@@ -208,8 +336,7 @@ export class EditorComponent {
     this.renderer.appendChild(div, span);
     this.renderer.appendChild(div, p);
     this.renderer.appendChild(this.LineField?.nativeElement, div);
-    this.Lines.push(div);
-    this.Move(p);
+    return div;
   }
   Move(p: HTMLParagraphElement) {
     setTimeout(() => {
@@ -221,6 +348,22 @@ export class EditorComponent {
       selection?.removeAllRanges();
       selection?.addRange(range);
     }, 0);
+  }
+  moveCursorToPosition(element: HTMLElement, position: number) {
+    const range = document.createRange();
+    const selection = window.getSelection();
+
+    this.CounterMotion = '';
+    if (element.childNodes.length > 0) {
+      setTimeout(() => {
+        range.setStart(element.childNodes[0], position);
+        range.collapse(true);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        this.updateCursorStyle(this.lintpointer, position);
+        console.log('moved');
+      }, 10);
+    }
   }
   DisplayPointer(linePoiner: number) {
     for (let i: number = 0; i < this.Lines.length; i++) {
